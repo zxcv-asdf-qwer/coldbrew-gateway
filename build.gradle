@@ -1,0 +1,49 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '2.7.15'
+	id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+}
+
+group = 'co.kr.compig'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	sourceCompatibility = '17'
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+	configureEach {
+		//logback과의 충돌 방지
+		exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+		exclude group: "org.springframework.boot", module: "spring-boot-starter-tomcat"
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+	implementation 'org.springframework.boot:spring-boot-starter-undertow'
+
+	implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+	implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
+
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+
+	implementation 'com.google.code.gson:gson:2.8.9'
+	//lombok
+	implementation 'org.projectlombok:lombok:1.18.20'
+	annotationProcessor 'org.projectlombok:lombok:1.18.20'
+
+	implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+	implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
+	implementation 'net.logstash.logback:logstash-logback-encoder:6.6'
+}
