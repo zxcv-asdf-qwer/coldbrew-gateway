@@ -1,14 +1,17 @@
 package co.kr.compig.coldbrew.infra;
 
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
 
 public interface CustomAuthentication extends Authentication {
 
-	String getProviderName();
+    String getProviderName();
 
-	int getNumberOfStars();
+    int getNumberOfStars();
 
-	boolean isAdmin();
+    boolean isAdmin();
 
-	String getName();
+    String getName();
+
+    OAuth2AccessToken getAccessToken();
 }

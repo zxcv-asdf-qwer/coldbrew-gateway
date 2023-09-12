@@ -1,6 +1,8 @@
 package co.kr.compig.coldbrew.infra.config;
 
 import co.kr.compig.coldbrew.infra.handler.KeycloakLogoutHandler;
+import co.kr.compig.coldbrew.infra.converter.CustomTokenConverter;
+import co.kr.compig.coldbrew.infra.oidc.CustomOAuth2LoginAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -46,11 +48,11 @@ class SecurityConfig {
                 this.oAuth2AuthorizedClientRepository,
                 authenticationManager()
         );
+        customOAuth2LoginAuthenticationFilter.setAuthenticationResultConverter(new CustomTokenConverter());
 //        http.cors();
 //        http.csrf();
         http.oauth2Login()
                 .and()
-                .authenticationProvider(new CustomOidcAuthorizationCodeAuthenticationProvider())
                 .addFilterBefore(customOAuth2LoginAuthenticationFilter, OAuth2LoginAuthenticationFilter.class);
         http.logout()
                 .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET"))
