@@ -2,41 +2,47 @@ package co.kr.compig.coldbrew.infra.handler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-import org.springframework.security.web.authentication.logout.LogoutHandler;
+import org.springframework.security.web.server.WebFilterExchange;
+import org.springframework.security.web.server.authentication.logout.ServerLogoutHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.publisher.Mono;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class KeycloakLogoutHandler implements LogoutHandler {
+public class KeycloakLogoutHandler implements ServerLogoutHandler {
 
-    private final RestTemplate restTemplate;
+    private final WebClient webClient;
 
     @Override
-    public void logout(HttpServletRequest request, HttpServletResponse response, Authentication auth) {
-        logoutFromKeycloak((OidcUser) auth.getPrincipal());
+    public Mono<Void> logout(WebFilterExchange exchange, Authentication authentication) {
+        return logoutFromKeycloak((OidcUser) authentication.getPrincipal());
     }
 
-    private void logoutFromKeycloak(OidcUser user) {
+    private Mono<Void> logoutFromKeycloak(OidcUser user) {
         String endSessionEndpoint = user.getIssuer() + "/protocol/openid-connect/logout";
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(endSessionEndpoint)
                 .queryParam("id_token_hint", user.getIdToken().getTokenValue());
 
-        ResponseEntity<String> logoutResponse = restTemplate.getForEntity(builder.toUriString(), String.class);
-        if (logoutResponse.getStatusCode().is2xxSuccessful()) {
-            log.info("Successfulley logged out from Keycloak");
-        } else {
-            log.error("Could not propagate logout to Keycloak");
-        }
+        return webClient.get()
+                .uri(builder.toUriString())
+                .exchangeToMono(response -> {
+                    if (!response.statusCode().is2xxSuccessful()) {
+                        log.error("Could not propagate logout to Keycloak");
+                    }
+                    log.info("Successfulley logged out from Keycloak");
+                    return response.bodyToMono(String.class);
+                })
+                .doOnError(WebClientResponseException.class, ex -> log.info("KeycloakLogoutHandler - logoutFromKeycloak : {}", ex))
+                .then();
     }
+
 
 }

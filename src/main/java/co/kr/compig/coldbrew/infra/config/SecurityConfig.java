@@ -1,71 +1,66 @@
 package co.kr.compig.coldbrew.infra.config;
 
 import co.kr.compig.coldbrew.infra.handler.KeycloakLogoutHandler;
-import co.kr.compig.coldbrew.infra.converter.CustomTokenConverter;
-import co.kr.compig.coldbrew.infra.oidc.CustomOAuth2LoginAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientProperties;
+import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientPropertiesMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.client.authentication.OAuth2LoginAuthenticationProvider;
-import org.springframework.security.oauth2.client.endpoint.DefaultAuthorizationCodeTokenResponseClient;
-import org.springframework.security.oauth2.client.oidc.authentication.OidcAuthorizationCodeAuthenticationProvider;
-import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
-import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
-import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
-import org.springframework.web.cors.CorsUtils;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.InMemoryReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
+import org.springframework.security.oauth2.client.web.server.DefaultServerOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.server.ServerOAuth2AuthorizationRequestResolver;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
+import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Configuration
-@EnableGlobalMethodSecurity(prePostEnabled = true)
+@EnableWebFluxSecurity
 @RequiredArgsConstructor
-class SecurityConfig {
+public class SecurityConfig {
     private final KeycloakLogoutHandler keycloakLogoutHandler;
-    private final OAuth2AuthorizedClientRepository oAuth2AuthorizedClientRepository;
-    private final ClientRegistrationRepository clientRegistrationRepository;
-
+    private final OAuth2ClientProperties oAuth2ClientProperties;
     @Bean
-    public AuthenticationManager authenticationManager() {
-        return new ProviderManager(
-                new OidcAuthorizationCodeAuthenticationProvider(new DefaultAuthorizationCodeTokenResponseClient(), new OidcUserService()),
-                new OAuth2LoginAuthenticationProvider(new DefaultAuthorizationCodeTokenResponseClient(), new DefaultOAuth2UserService())
-        );
-    }
-
-    @Bean
-    public SecurityFilterChain clientFilterChain(HttpSecurity http) throws Exception {
-        var customOAuth2LoginAuthenticationFilter = new CustomOAuth2LoginAuthenticationFilter(
-                this.clientRegistrationRepository,
-                this.oAuth2AuthorizedClientRepository,
-                authenticationManager()
-        );
-        customOAuth2LoginAuthenticationFilter.setAuthenticationResultConverter(new CustomTokenConverter());
-//        http.cors();
-//        http.csrf();
-        http.oauth2Login()
-                .and()
-                .addFilterBefore(customOAuth2LoginAuthenticationFilter, OAuth2LoginAuthenticationFilter.class);
-        http.logout()
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET"))
-                .addLogoutHandler(keycloakLogoutHandler)
-                .logoutSuccessUrl("/");
-
-        http.authorizeHttpRequests(authorize -> authorize
-                .requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
-                .anyRequest()
-                .authenticated());
-
-        SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
+    public SecurityWebFilterChain pkceFilterChain(ServerHttpSecurity http) {
+        http.csrf(ServerHttpSecurity.CsrfSpec::disable);
+        http.authorizeExchange(r -> r.anyExchange().authenticated());
+        http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance());
+        http.oauth2Login(login-> login.clientRegistrationRepository(this.clientRegistrationRepository()).authorizationRequestResolver(pkceResolver()));
+        http.oauth2Client(oauth2 -> oauth2.clientRegistrationRepository(this.clientRegistrationRepository()).authorizationRequestResolver(pkceResolver()));
+        http.logout(logout -> logout
+                .logoutHandler(this.keycloakLogoutHandler)
+                .logoutSuccessHandler(oidcLogoutSuccessHandler(this.clientRegistrationRepository())));
         return http.build();
     }
+    @Bean
+    public ServerOAuth2AuthorizationRequestResolver pkceResolver() {
+        DefaultServerOAuth2AuthorizationRequestResolver resolver =
+                new DefaultServerOAuth2AuthorizationRequestResolver(this.clientRegistrationRepository());
+        resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
+        return resolver;
+    }
 
+    private ServerLogoutSuccessHandler oidcLogoutSuccessHandler(ReactiveClientRegistrationRepository repo) {
+        OidcClientInitiatedServerLogoutSuccessHandler oidcLogoutSuccessHandler =
+                new OidcClientInitiatedServerLogoutSuccessHandler(repo);
+        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}");
+
+        return oidcLogoutSuccessHandler;
+    }
+
+    private ReactiveClientRegistrationRepository clientRegistrationRepository() {
+        List<ClientRegistration> registrations = new ArrayList<>(
+                new OAuth2ClientPropertiesMapper(oAuth2ClientProperties).asClientRegistrations().values());
+        return new InMemoryReactiveClientRegistrationRepository(registrations);
+    }
 }
