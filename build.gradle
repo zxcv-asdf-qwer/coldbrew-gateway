@@ -19,6 +19,7 @@ configurations {
 		//logback과의 충돌 방지
 		exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
 		exclude group: "org.springframework.boot", module: "spring-boot-starter-tomcat"
+		exclude group: "org.springframework.boot", module: "spring-boot-starter-reactor-netty"
 		exclude group: "io.undertow", module: "undertow-websockets-jsr"
 	}
 }
@@ -27,8 +28,6 @@ repositories {
 	mavenCentral()
 }
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 	implementation 'org.springframework.boot:spring-boot-starter'
 

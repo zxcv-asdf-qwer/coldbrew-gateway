@@ -1,8 +1,6 @@
 server:
   port: 8081
 spring:
-  main:
-   allow-bean-definition-overriding: true
   security:
     oauth2:
       client:
@@ -11,15 +9,12 @@ spring:
             client-authentication-method: none
             provider: keycloak
             client-id: coldbrew-gateway
-            client-secret: 7Pt1iLzMLEL5gmBWv7cFkOaudee1mrJb
+#            client-secret: Ypklk7249LcMMKHrEeSaNxxyGmlLmnIQ
             authorization-grant-type: authorization_code
             redirect_uri:
               - http://localhost:8081/login/oauth2/code/keycloak
-              - http://localhost:8081/
             scope:
               - openid
-              - profile
-              - email
         provider:
           keycloak:
             issuer-uri: http://localhost:8180/realms/coldbrew
@@ -28,9 +23,7 @@ spring:
 #            token-uri: http://localhost:8180/realms/coldbrew/protocol/openid-connect/token
 #            user-info-uri: http://localhost:8180/realms/coldbrew/protocol/openid-connect/userinfo
 #            user-name-attribute: preferred_username
-      resourceserver:
-        jwt:
-          issuer-uri: http://localhost:8180/realms/coldbrew
+
 management:
   tracing:
     sampling:
@@ -41,3 +34,7 @@ management:
 #  zipkin:
 #    tracing:
 #      endpoint: "http://localhost:8091/api/v2/spans"
+
+logging:
+  level:
+    web: debug
