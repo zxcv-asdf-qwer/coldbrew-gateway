@@ -18,6 +18,10 @@ spring:
         provider:
           keycloak:
             issuer-uri: http://localhost:8180/realms/coldbrew
+  mvc:
+    log-request-details: true
+  codec:
+    log-request-details: true
 #            jwk-set-uri: http://localhost:8180/realms/coldbrew/protocol/openid-connect/certs
 #            authorization-uri: http://localhost:8180/realms/coldbrew/protocol/openid-connect/auth
 #            token-uri: http://localhost:8180/realms/coldbrew/protocol/openid-connect/token
@@ -34,7 +38,9 @@ management:
 #  zipkin:
 #    tracing:
 #      endpoint: "http://localhost:8091/api/v2/spans"
-
 logging:
   level:
-    web: debug
+    web: TRACE
+    org:
+      springframework:
+        security: DEBUG
