@@ -1,5 +1,6 @@
 package co.kr.compig.coldbrew.infra.config;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthorizationCodeAuthenticationToken;
@@ -25,13 +26,13 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 
 public class CustomServerOAuth2AuthorizationCodeAuthenticationTokenConverter extends ServerOAuth2AuthorizationCodeAuthenticationTokenConverter {
-    public static final String DEFAULT_REGISTRATION_ID_URI_VARIABLE_NAME = "registrationId";
-    public static final String DEFAULT_AUTHORIZATION_REQUEST_PATTERN = "/oauth2/authorization/{"
+    private static final String DEFAULT_REGISTRATION_ID_URI_VARIABLE_NAME = "registrationId";
+    private static final String DEFAULT_AUTHORIZATION_REQUEST_PATTERN = "/login/oauth2/code/{"
             + DEFAULT_REGISTRATION_ID_URI_VARIABLE_NAME + "}";
 
-    static final String AUTHORIZATION_REQUEST_NOT_FOUND_ERROR_CODE = "authorization_request_not_found";
+    private static final String AUTHORIZATION_REQUEST_NOT_FOUND_ERROR_CODE = "authorization_request_not_found";
 
-    static final String CLIENT_REGISTRATION_NOT_FOUND_ERROR_CODE = "client_registration_not_found";
+    private static final String CLIENT_REGISTRATION_NOT_FOUND_ERROR_CODE = "client_registration_not_found";
     private final ReactiveClientRegistrationRepository clientRegistrationRepository;
     private final ServerWebExchangeMatcher authorizationRequestMatcher = new PathPatternParserServerWebExchangeMatcher(DEFAULT_AUTHORIZATION_REQUEST_PATTERN);
 
@@ -42,6 +43,10 @@ public class CustomServerOAuth2AuthorizationCodeAuthenticationTokenConverter ext
 
     @Override
     public Mono<Authentication> convert(ServerWebExchange exchange) {
+        ServerHttpRequest request = exchange.getRequest();
+        if (ObjectUtils.anyNull(request.getQueryParams().getFirst(OidcParameterNames.NONCE), request.getQueryParams().getFirst(PkceParameterNames.CODE_VERIFIER))) {
+            return super.convert(exchange);
+        }
         return this.authorizationRequestMatcher
                 .matches(exchange)
                 .filter(ServerWebExchangeMatcher.MatchResult::isMatch)
@@ -54,8 +59,8 @@ public class CustomServerOAuth2AuthorizationCodeAuthenticationTokenConverter ext
     }
 
 
-    private Mono<OAuth2AuthorizationCodeAuthenticationToken> authenticationRequest(ServerWebExchange exchange,
-                                                                                   OAuth2AuthorizationRequest authorizationRequest) {
+    private Mono<Authentication> authenticationRequest(ServerWebExchange exchange,
+                                                       OAuth2AuthorizationRequest authorizationRequest) {
         // @formatter:off
         return Mono.just(authorizationRequest)
                 .map(OAuth2AuthorizationRequest::getAttributes).flatMap((attributes) -> {
@@ -74,6 +79,10 @@ public class CustomServerOAuth2AuthorizationCodeAuthenticationTokenConverter ext
                     return authenticationRequest;
                 });
         // @formatter:on
+    }
+
+    private <T> Mono<T> oauth2AuthorizationException(ServerWebExchange exchange) {
+        return (Mono<T>) Mono.firstWithSignal(super.convert(exchange));
     }
 
     private <T> Mono<T> oauth2AuthorizationException(String errorCode) {
@@ -95,7 +104,7 @@ public class CustomServerOAuth2AuthorizationCodeAuthenticationTokenConverter ext
         return this.clientRegistrationRepository.findByRegistrationId(clientRegistrationId)
                 .switchIfEmpty(
                         Mono.error(new NullPointerException(String.format("%s - clientRegistration is null", clientRegistrationId))))
-                .map((clientRegistration) -> {
+                .mapNotNull((clientRegistration) -> {
                     OAuth2AuthorizationRequest.Builder builder = getBuilder(clientRegistration);
                     authorizationRequestCustomizer(exchange.getRequest()).accept(clientRegistration, builder);
                     return builder.build();
