@@ -37,7 +37,9 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.AuthenticationWebFilter;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
+import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher;
+import org.springframework.web.server.session.WebSessionManager;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
@@ -55,9 +57,11 @@ public class SecurityConfig {
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http, ServerOAuth2AuthorizedClientRepository authorizedClientRepository) {
         http.cors(ServerHttpSecurity.CorsSpec::disable);
         http.csrf(ServerHttpSecurity.CsrfSpec::disable);
-        http.authorizeExchange((exchange) -> exchange.pathMatchers("/actuator/**").permitAll().anyExchange().authenticated());
-        http.oauth2Login(login -> login.authorizationRequestResolver(authorizationRequestResolver(this.clientRegistrationRepository())));
+        http.authorizeExchange((exchange) -> exchange.pathMatchers("/actuator/**", "/").permitAll().anyExchange().authenticated());
+        http.oauth2Login(login -> {
+            login.authorizationRequestResolver(authorizationRequestResolver(this.clientRegistrationRepository()));
 
+        });
         AuthenticationWebFilter authenticationFilter = new CustomOAuth2LoginAuthenticationWebFilter(reactiveAuthenticationManager(),
                 authorizedClientRepository, clientRegistrationRepository());
 
@@ -150,5 +154,9 @@ public class SecurityConfig {
                     });
         };
     }
-
+//    @Bean
+//    public WebSessionManager webSessionManager() {
+//        // Emulate SessionCreationPolicy.STATELESS
+//        return exchange -> Mono.empty();
+//    }
 }

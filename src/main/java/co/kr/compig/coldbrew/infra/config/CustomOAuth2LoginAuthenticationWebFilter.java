@@ -55,7 +55,6 @@ public class CustomOAuth2LoginAuthenticationWebFilter extends AuthenticationWebF
 
     private ServerAuthenticationSuccessHandler getAuthenticationSuccessHandler() {
         RedirectServerAuthenticationSuccessHandler handler = new RedirectServerAuthenticationSuccessHandler();
-        handler.setRequestCache(new WebSessionServerRequestCache());
         return handler;
     }
 }
