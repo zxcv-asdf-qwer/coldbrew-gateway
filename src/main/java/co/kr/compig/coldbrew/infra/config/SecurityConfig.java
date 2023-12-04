@@ -40,6 +40,7 @@ import org.springframework.security.web.server.authentication.logout.ServerLogou
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher;
 import reactor.core.publisher.Mono;
 
+import java.net.URI;
 import java.util.*;
 
 @Slf4j
@@ -55,10 +56,9 @@ public class SecurityConfig {
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http, ServerOAuth2AuthorizedClientRepository authorizedClientRepository) {
         http.cors(ServerHttpSecurity.CorsSpec::disable);
         http.csrf(ServerHttpSecurity.CsrfSpec::disable);
-        http.authorizeExchange((exchange) -> exchange.pathMatchers("/actuator/**", "/").permitAll().anyExchange().authenticated());
+        http.authorizeExchange((exchange) -> exchange.pathMatchers("/actuator/**",  "/favicon.ico").permitAll().anyExchange().authenticated());
         http.oauth2Login(login -> {
             login.authorizationRequestResolver(authorizationRequestResolver(this.clientRegistrationRepository()));
-
         });
         AuthenticationWebFilter authenticationFilter = new CustomOAuth2LoginAuthenticationWebFilter(reactiveAuthenticationManager(),
                 authorizedClientRepository, clientRegistrationRepository());
@@ -70,12 +70,10 @@ public class SecurityConfig {
         return http.build();
     }
 
-    //    @Bean
     public ServerLogoutSuccessHandler oidcLogoutSuccessHandler() {
         OidcClientInitiatedServerLogoutSuccessHandler oidcLogoutSuccessHandler =
                 new OidcClientInitiatedServerLogoutSuccessHandler(clientRegistrationRepository());
-        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}");
-
+        oidcLogoutSuccessHandler.setLogoutSuccessUrl(URI.create("/"));
         return oidcLogoutSuccessHandler;
     }
 
