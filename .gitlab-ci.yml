@@ -1,0 +1,4 @@
+include:
+    - project: 'platform/ci-template'
+      ref: master
+      file: 'templates/common-ci.yml'
